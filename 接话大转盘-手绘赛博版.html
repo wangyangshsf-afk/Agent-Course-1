@@ -1,0 +1,819 @@
+	<!DOCTYPE html>
+	<html lang="zh-CN">
+	<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>接话大转盘 · 环节三可视化教具</title>
+	<style>
+	*{box-sizing:border-box;margin:0;padding:0}
+	body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f3efe7;color:#222;min-height:100vh;user-select:none}
+	:root{--orange:#e8590c;--blue:#1c7ed6;--green:#2f9e44;--red:#e03131;--gold:#f08c00}
+	/* ====== 舞台与导航 ====== */
+	.stage{display:none;flex-direction:column;align-items:center;padding:20px 20px 96px;gap:14px;animation:fadein .3s}
+	.stage.on{display:flex}
+	@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+	h2{font-size:28px}
+	.sub{color:#777;font-size:16px}
+	.navbar{position:fixed;left:0;right:0;bottom:0;background:#222;color:#fff;display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 14px;z-index:50;flex-wrap:wrap}
+	.navbtn{background:#444;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:16px;font-weight:700;cursor:pointer}
+	.navbtn:hover{background:#666}
+	.navdot{background:#555;color:#ddd;border:none;border-radius:999px;padding:9px 15px;font-size:15px;font-weight:700;cursor:pointer}
+	.navdot.on{background:var(--gold);color:#222}
+	.navtip{font-size:12px;color:#aaa;position:fixed;right:12px;bottom:12px}
+	/* ====== 通用组件 ====== */
+	.chiprow{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+	.chip{border:3px solid var(--orange);background:#fff;color:var(--orange);border-radius:12px;padding:12px 20px;font-size:17px;font-weight:800;cursor:pointer;transition:.15s}
+	.chip:hover{background:#fff3bf}
+	.chip.on{background:var(--orange);color:#fff}
+	.btn{border:none;border-radius:12px;padding:14px 30px;font-size:19px;font-weight:900;cursor:pointer;background:var(--orange);color:#fff;box-shadow:0 4px 0 #b4530a}
+	.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #b4530a}
+	.btn:disabled{background:#bbb;box-shadow:0 4px 0 #999;cursor:not-allowed}
+	.bigbtn{border:none;border-radius:14px;padding:16px 36px;font-size:21px;font-weight:900;cursor:pointer;background:var(--orange);color:#fff;box-shadow:0 5px 0 #b4530a;animation:breath 1.6s infinite}
+	@keyframes breath{50%{transform:scale(1.05)}}
+	.punch{display:none;background:#222;color:#ffd43b;border-radius:16px;padding:18px 26px;font-size:21px;font-weight:800;line-height:1.6;text-align:center;max-width:760px}
+	.punch.show{display:block;animation:punchin .5s}
+	@keyframes punchin{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.06)}100%{transform:scale(1)}}
+	/* ====== 第1屏：手机 ====== */
+	.phone{width:min(560px,92vw);background:#111;border-radius:38px;padding:22px 18px 26px;box-shadow:0 18px 50px rgba(0,0,0,.35);border:6px solid #333}
+	.pscreen{background:#f2f0ec;border-radius:22px;padding:20px 18px;min-height:320px;display:flex;flex-direction:column}
+	.ptyped{font-size:34px;font-weight:800;min-height:120px;line-height:1.5;word-break:break-all;padding:10px 6px}
+	.caret{display:inline-block;animation:blink 1s infinite;color:var(--orange)}
+	@keyframes blink{50%{opacity:0}}
+	.suggrow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:auto;padding-top:14px;min-height:64px}
+	.sugg{border:none;border-radius:999px;background:#fff;border:2.5px solid var(--blue);color:var(--blue);padding:11px 18px;font-size:19px;font-weight:800;cursor:pointer;animation:chipin .35s both}
+	.sugg:hover{background:#e7f5ff}
+	@keyframes chipin{from{transform:scale(.3);opacity:0}70%{transform:scale(1.1)}to{transform:scale(1);opacity:1}}
+	.pstart{margin-top:16px;text-align:center}
+	/* ====== 第2屏：转盘 ====== */
+	.p2wrap{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start;max-width:1100px;width:100%}
+	@media(max-width:900px){.p2wrap{grid-template-columns:1fr;justify-items:center}}
+	.sentence{font-size:34px;font-weight:900;background:#fff;border:4px solid #222;border-radius:16px;padding:16px 22px;line-height:1.6;max-width:1050px;width:100%;min-height:84px;word-break:break-all}
+	.sentence .w{display:inline-block;margin:0 1px}
+	.sentence .popw{display:inline-block;margin:0 1px;background:#fff3bf;border-radius:6px;padding:0 4px;animation:wordpop .45s}
+	@keyframes wordpop{0%{transform:scale(.2);opacity:0}70%{transform:scale(1.3)}100%{transform:scale(1)}}
+	.wheelzone{display:flex;flex-direction:column;align-items:center;gap:8px}
+	.wheelwrap{position:relative;width:min(46vmin,420px)}
+	.wheelbox{width:100%;aspect-ratio:1;transition:transform 2.6s cubic-bezier(.12,.8,.16,1)}
+	.wheelbox svg{width:100%;height:100%;display:block;filter:drop-shadow(0 8px 18px rgba(0,0,0,.22))}
+	.seg{cursor:pointer}
+	.seg.fill{cursor:default}
+	.seg.forced{stroke:#222 !important;stroke-width:7 !important}
+	.seg.win{stroke:var(--red) !important;stroke-width:8 !important;animation:winp .45s 3}
+	@keyframes winp{50%{stroke-width:14}}
+	.segword{font-weight:900;fill:#222;pointer-events:none}
+	.segpct{font-weight:700;fill:#555;pointer-events:none;font-size:14px}
+	.wpointer{position:absolute;top:-16px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:30px solid var(--red);z-index:5;filter:drop-shadow(0 3px 3px rgba(0,0,0,.3))}
+	.hub{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:88px;height:88px;background:#fff;border:5px solid #222;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:44px;z-index:4;box-shadow:0 4px 10px rgba(0,0,0,.2)}
+	.wheelcap{font-size:15px;font-weight:800;color:#555;background:#fff;border:2px dashed #bbb;border-radius:10px;padding:7px 14px}
+	.sidecol{display:flex;flex-direction:column;gap:12px;min-width:280px;max-width:430px}
+	.why{background:#e7f5ff;border-left:8px solid var(--blue);border-radius:12px;padding:14px 18px;font-size:18px;font-weight:700;line-height:1.65;min-height:88px}
+	.pnote{display:none;background:#ebfbee;border:3px solid var(--green);border-radius:14px;padding:14px 18px;font-size:18px;font-weight:800;line-height:1.65}
+	.pnote.show{display:block;animation:punchin .45s}
+	.wrongcard{display:none;background:#fff0f0;border:3px solid var(--red);border-radius:14px;padding:14px 18px;font-size:17px;font-weight:800;line-height:1.65;color:var(--red)}
+	.wrongcard.show{display:block;animation:punchin .45s}
+	.wrongcard button{margin-top:10px;border:none;border-radius:10px;background:var(--red);color:#fff;padding:10px 18px;font-size:16px;font-weight:800;cursor:pointer}
+/* ====== 身份选择卡（我是一个…） ====== */
+.chooserow{display:none;gap:12px;flex-wrap:wrap;justify-content:center;max-width:1000px}
+.chooserow.show{display:flex;animation:punchin .4s}
+.idcard{border:4px solid #222;background:#fff;border-radius:16px;padding:12px 18px;font-size:19px;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s;box-shadow:0 4px 0 #222}
+.idcard:hover{background:#fff3bf;transform:translateY(-3px)}
+.idcard.on{background:var(--orange);color:#fff;border-color:#b4530a;box-shadow:0 4px 0 #b4530a}
+.idcard .ie{font-size:26px}
+	.fastrow{display:flex;align-items:center;gap:8px;font-size:14px;color:#888;font-weight:700}
+	.flyword{position:fixed;z-index:99;font-size:48px;font-weight:900;color:var(--orange);pointer-events:none;transform:translate(-50%,-50%) scale(2.4) rotate(-10deg);transition:transform .62s cubic-bezier(.2,.75,.3,1);text-shadow:0 2px 0 #fff,0 0 14px #ffd43b}
+	/* ====== 第3屏：没有手 ====== */
+	.p3grid{display:grid;grid-template-columns:1.25fr 1fr;gap:18px;width:min(1080px,100%)}
+	@media(max-width:880px){.p3grid{grid-template-columns:1fr}}
+	.chat{background:#fff;border:3px solid #ddd;border-radius:18px;padding:16px;height:330px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+	.msg{max-width:88%;padding:11px 15px;border-radius:16px;font-size:17px;line-height:1.6}
+	.msg.u{align-self:flex-end;background:#d3f9d8;border:2px solid #8ce99a}
+	.msg.m{align-self:flex-start;background:#e7f5ff;border:2px solid #a5d8ff}
+	.world{background:#fff;border:4px solid #222;border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:14px}
+	.wtitle{font-size:19px;font-weight:900}
+	.brainhand{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 0}
+	.bigemoji{font-size:52px}
+	.cable{flex:1;display:flex;align-items:center}
+	.cable i{flex:1;border-top:5px dashed #999;height:0}
+	.cable .gap{font-size:24px;color:#999;background:#fff;padding:0 4px;border:3px dashed #999;border-radius:10px}
+	.cable.spark i{border-color:var(--red);animation:cablered .4s 4}
+	.cable.spark .gap{color:#fff;background:var(--red);border-color:var(--red)}
+	@keyframes cablered{50%{opacity:.3}}
+	.items{display:flex;flex-direction:column;gap:10px}
+	.item{background:#f8f9fa;border:3px dashed #aaa;border-radius:14px;padding:14px 16px;font-size:19px;font-weight:800;position:relative}
+	.item.deny{border-color:var(--red);background:#fff0f0}
+	.item.deny::after{content:'❌ 未连接';position:absolute;right:10px;top:-13px;background:var(--red);color:#fff;font-size:14px;padding:3px 10px;border-radius:99px;animation:punchin .4s}
+	.item.shake{animation:shakeit .4s 2}
+	@keyframes shakeit{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+	.s3banner{display:none;border-radius:14px;padding:15px 20px;font-size:20px;font-weight:900;width:min(1080px,100%);text-align:center}
+	.s3banner.show{display:block;animation:punchin .5s}
+	.s3banner.green{background:#ebfbee;border:4px solid var(--green);color:var(--green)}
+	.s3banner.red{background:#fff0f0;border:4px solid var(--red);color:var(--red)}
+	/* ====== 第4屏：谎言探测器 ====== */
+	.p4grid{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;width:min(1080px,100%);align-items:start}
+	@media(max-width:880px){.p4grid{grid-template-columns:1fr}}
+	.p4stage{position:relative;min-height:300px}
+	.paper{background:#fff;border:1px solid #ccc;border-radius:6px;padding:34px 38px;font-family:"Songti SC","SimSun",serif;box-shadow:0 12px 30px rgba(0,0,0,.18);position:relative;max-width:520px;margin:0 auto}
+	.ptitle{text-align:center;color:#c92a2a;font-size:34px;font-weight:900;letter-spacing:16px;margin-bottom:16px;border-bottom:3px solid #c92a2a;padding-bottom:10px}
+	.paper p{font-size:18px;line-height:2;text-indent:2em}
+	.psig{text-align:right;margin-top:14px;font-size:18px;position:relative;padding-right:8px}
+	.pseal{position:absolute;right:44px;top:-26px;width:92px;height:92px;border:4px solid rgba(201,42,42,.75);border-radius:50%;color:rgba(201,42,42,.8);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;transform:rotate(-14deg)}
+	.sus{position:relative;padding:1px 3px;border-radius:4px}
+	.sus.hit{background:#ffc9c9;color:#c92a2a}
+	.sus.hit::after{content:'❌';position:absolute;right:-14px;top:-12px;font-size:15px}
+	.oks{padding:1px 3px;border-radius:4px}
+	.oks.ok{background:#d3f9d8;color:#2b8a3e}
+	.oks.ok::after{content:'✅';position:absolute;margin-left:2px}
+	.bigseal{display:none;position:absolute;right:8%;top:12%;width:150px;height:150px;border:6px solid var(--red);border-radius:50%;color:var(--red);font-size:24px;font-weight:900;align-items:center;justify-content:center;text-align:center;transform:rotate(-18deg);background:rgba(255,255,255,.85);pointer-events:none}
+	.bigseal.show{display:flex;animation:stampin .4s}
+	@keyframes stampin{0%{transform:rotate(-18deg) scale(3);opacity:0}70%{transform:rotate(-18deg) scale(.95);opacity:1}100%{transform:rotate(-18deg) scale(1)}}
+	.scanbar{display:none;position:absolute;left:0;right:0;height:56px;background:linear-gradient(rgba(224,49,49,0) 0%,rgba(224,49,49,.28) 50%,rgba(224,49,49,0) 100%);border-bottom:3px solid var(--red);z-index:8;pointer-events:none}
+	.scanbar.run{display:block;animation:scanmove 1.7s linear forwards}
+	@keyframes scanmove{from{top:0}to{top:calc(100% - 56px)}}
+	.p4side{display:flex;flex-direction:column;gap:14px}
+	.votebox{background:#fff;border:3px solid #222;border-radius:14px;padding:16px;text-align:center}
+	.votebox .vt{font-size:18px;font-weight:900;margin-bottom:10px}
+	.votebtns{display:flex;gap:12px;justify-content:center}
+	.votebtns button{border:none;border-radius:12px;padding:12px 22px;font-size:19px;font-weight:900;cursor:pointer}
+	.vy{background:#d3f9d8;color:var(--green)}
+	.vn{background:#ffe3e3;color:var(--red)}
+	.verdict{display:none;border-radius:14px;padding:16px 20px;font-size:18px;font-weight:800;line-height:1.7}
+	.verdict.show{display:block;animation:punchin .5s}
+	.verdict.bad{background:#fff0f0;border:4px solid var(--red);color:var(--red)}
+	.verdict.good{background:#ebfbee;border:4px solid var(--green);color:var(--green)}
+	.answer{background:#fff;border:3px solid #ddd;border-radius:14px;padding:24px 26px;max-width:520px;margin:0 auto}
+.answer .q{font-size:20px;font-weight:900;margin-bottom:10px}
+.answer p{font-size:19px;line-height:2}
+/* ====== 图书卡片（幻觉案例） ====== */
+.bookcard{background:#fff;border:1px solid #ccc;border-radius:8px;padding:20px 22px;max-width:540px;margin:0 auto;box-shadow:0 12px 30px rgba(0,0,0,.18);display:flex;gap:18px;text-align:left}
+@media(max-width:620px){.bookcard{flex-direction:column;align-items:center}}
+.bookcover{flex:none;width:124px;height:172px;border-radius:4px 8px 8px 4px;background:linear-gradient(160deg,#24407f,#0d1b3d 55%,#3d2a6b);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:14px 10px;box-shadow:inset -7px 0 12px rgba(0,0,0,.4),0 8px 16px rgba(0,0,0,.32);position:relative}
+.bookcover::before{content:'';position:absolute;left:8px;top:8px;bottom:8px;width:3px;background:rgba(255,255,255,.28);border-radius:2px}
+.bc-t{font-size:23px;font-weight:900;letter-spacing:3px;line-height:1.25;text-align:center}
+.bc-star{font-size:13px;color:#ffd43b;letter-spacing:2px}
+.bc-a{font-size:12px;opacity:.9;border-top:1px solid rgba(255,255,255,.35);padding-top:8px;width:100%;text-align:center}
+.bookmeta{flex:1;min-width:0}
+.bm-title{font-size:22px;font-weight:900;margin-bottom:8px}
+.bm-row{font-size:15px;line-height:1.9;color:#333}
+.bm-row b{color:#666;font-weight:800}
+.bm-desc{font-size:14px;line-height:1.85;color:#555;margin-top:8px;border-top:1px dashed #ddd;padding-top:8px}
+.p4tip{background:#fff8e6;border:3px dashed var(--gold);border-radius:12px;padding:10px 16px;font-size:15px;font-weight:800;color:#7a5200;text-align:center;max-width:1000px;line-height:1.6}
+.askline{background:#222;color:#ffe8a3;border-radius:12px;padding:11px 18px;font-size:16px;font-weight:800;line-height:1.7;max-width:560px;margin:0 auto 16px;text-align:left}
+.askline::before{content:'📨 同学的问题：';color:#ffd43b}
+/* hand-drawn neo-tech skin */
+:root{--ink:#17354b;--cyan:#18dfe3;--edge:rgba(30,104,142,.66);--paper:rgba(255,255,255,.76);--shadow:0 11px 28px rgba(36,118,157,.16),0 3px 0 rgba(21,92,130,.18)}
+body{color:var(--ink);background:#dff5ff url('hand-drawn-neotech-watercolor-bg.png') center/cover fixed no-repeat;letter-spacing:.02em}
+body::before{content:"";position:fixed;inset:11px;pointer-events:none;z-index:60;border:3px solid rgba(20,112,157,.58);border-radius:22px 15px 25px 17px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.55)}
+.stage{position:relative;padding:35px 28px 110px;gap:17px;max-width:1240px;margin:auto}.stage::before{content:"{  }  ✦";position:absolute;left:3vw;top:5.4rem;color:rgba(22,133,184,.43);font:900 30px cursive;transform:rotate(-8deg)}
+h2{font-size:clamp(27px,3vw,39px);font-weight:950;color:#102e45;text-align:center;text-shadow:2px 2px 0 #fff,0 4px 12px rgba(255,143,54,.28)}.sub{color:#2c6480;font-weight:700;text-align:center}
+.navbar{background:rgba(16,56,78,.90);backdrop-filter:blur(16px);border-top:3px solid rgba(38,237,238,.9);box-shadow:0 -5px 20px rgba(7,66,96,.25)}.navbtn,.navdot{border:2px solid rgba(225,252,255,.45);border-radius:16px 13px 18px 12px;background:rgba(255,255,255,.12);font-family:inherit}.navdot.on{background:linear-gradient(135deg,#1ce2df,#398ee8);color:#07324b;border-color:#cfffff;box-shadow:0 0 14px rgba(27,238,238,.8)}.navtip{color:#c8f7ff}
+.chip{border:3px solid var(--edge);border-radius:17px 13px 18px 12px;color:#155d87;background:rgba(255,255,255,.72);box-shadow:3px 4px 0 rgba(30,126,170,.18);font-family:inherit}.chip.on{color:#083a55;background:linear-gradient(135deg,#5ff3ed,#82caff);border-color:#0d8dc4}
+.btn,.bigbtn{font-family:inherit;border:3px solid #9e4615;border-radius:17px 13px 19px 12px;background:linear-gradient(135deg,#ffaf4b,#f6763d);box-shadow:0 5px 0 #ad4f21,0 7px 18px rgba(237,112,38,.28)}
+.phone{width:min(420px,92vw);background:linear-gradient(145deg,#f7fdff,#b6e9ff);border:6px solid #173d59;border-radius:46px 42px 51px 39px;padding:14px 12px 18px;box-shadow:var(--shadow),0 0 0 5px rgba(28,228,232,.35);position:relative}.phone::before{content:"";display:block;width:92px;height:22px;background:#173d59;border-radius:0 0 16px 16px;margin:-14px auto 9px}.pscreen{background:rgba(255,255,255,.8);border:3px solid rgba(20,135,174,.58);border-radius:25px 21px 27px 20px;box-shadow:inset 0 0 22px rgba(28,219,226,.18);min-height:265px;padding:15px 14px 12px}.ptyped{font-size:28px;color:#143e59;min-height:102px}.caret{color:#ff7e32}.sugg{border:3px solid #1681bd;background:#fff;color:#176e9a;box-shadow:2px 3px 0 rgba(15,139,181,.2);font-family:inherit}
+.punch,.why,.pnote,.wrongcard,.chat,.world,.votebox,.verdict,.answer,.sentence,.bookcard,.p4tip,.askline{background:var(--paper);border:3px solid var(--edge);border-radius:21px 15px 22px 16px;box-shadow:var(--shadow);backdrop-filter:blur(10px)}.sentence{border-color:#176990;background:rgba(255,255,255,.78)}.sentence .popw{background:#fff5a5;border:2px solid #f6a84d}.wheelwrap{filter:drop-shadow(0 10px 14px rgba(19,115,162,.18))}.wheelbox svg{filter:drop-shadow(0 8px 8px rgba(20,97,145,.25))}.wpointer{border-top-color:#ff8045}.hub{background:linear-gradient(135deg,#fff,#c8faff);border-color:#1678b3;box-shadow:0 0 0 5px rgba(29,236,230,.26),0 4px 10px rgba(17,81,112,.2)}.wheelcap{color:#216383;background:rgba(255,255,255,.72);border:3px dashed #4fbfd1;border-radius:14px}.why{border-left:9px solid #1ccfd9;color:#185273}.pnote{background:rgba(237,255,243,.82);border-color:#4cb88c}.wrongcard{background:rgba(255,242,239,.88);border-color:#ef7969}.chat{border-color:#69b8dc;background:rgba(255,255,255,.65)}.world{border-color:#166692;background:rgba(255,255,255,.68)}.item{background:rgba(255,255,255,.7);border-color:#51a9c9}.paper{background:#fffdf5;border:3px solid #4e7183;box-shadow:8px 10px 0 rgba(22,226,226,.3),0 13px 25px rgba(20,85,112,.2)}.answer{background:rgba(255,255,255,.82);border-color:#3c9fc3}.votebox{border-color:#44afcf;background:rgba(255,255,255,.72)}
+ .ios-keyboard{margin:10px 1px 0;padding:8px 5px 6px;background:rgba(206,228,238,.82);border-radius:13px;color:#254b61;font:700 9px/1.8 Arial;text-align:center;letter-spacing:3px;word-spacing:5px;box-shadow:inset 0 1px 0 #fff}.ios-keyboard div{margin:1px 0}.ios-keyboard .kb-wide{letter-spacing:1px;word-spacing:2px;background:rgba(255,255,255,.58);border-radius:7px;font-size:10px}
+@media(max-width:600px){body::before{inset:5px;border-width:2px}.stage{padding:26px 16px 125px}.navbar{gap:5px}.navbtn,.navdot{padding:8px 9px;font-size:12px}.navtip{display:none}.phone{width:100%}.wheelwrap{width:min(82vmin,400px)}}
+</style>
+	</head>
+	<body>
+	<!-- ═══════ 第1屏：手机会猜字 ═══════ -->
+	<section class="stage on" id="st1">
+	  <h2>📱 第一步：你的手机，每天都在猜字</h2>
+	  <p class="sub">先看一个你天天见的东西——然后告诉你一个秘密</p>
+	  <div class="phone">
+	    <div class="pscreen">
+	      <div class="ptyped"><span id="p1-input"></span><span class="caret">▌</span></div>
+	      <div class="suggrow" id="p1-chips"></div>
+	    </div>
+	    <div class="ios-keyboard" aria-hidden="true"><div>Q W E R T Y U I O P</div><div>A S D F G H J K L</div><div>Z X C V B N M</div><div class="kb-wide">🌐　空格　⌫</div></div>
+	    <div class="pstart"><button class="btn" onclick="p1start()">▶️ 演示：手机打字</button></div>
+	  </div>
+	  <div class="punch" id="p1-done">
+	    手机一直在猜：下一个词是什么。<br>
+	    ChatGPT 的大脑 = 这个功能的<b style="color:#fff">一万亿字放大版</b>。<br><br>
+	    <button class="btn" onclick="go(2)">下一屏：看看它脑子里怎么挑词 ▶</button>
+	  </div>
+	</section>
+	<!-- ═══════ 第2屏：接话大转盘 ═══════ -->
+	<section class="stage" id="st2">
+	  <h2>🎡 接话大转盘：大脑每说一个字，都在转一次</h2>
+	  <div class="chiprow">
+	    <button class="chip on" data-s="poem" onclick="selStory('poem')">📖 床前明月…</button>
+	    <button class="chip" data-s="thirst" onclick="selStory('thirst')">🥤 我渴了</button>
+    <button class="chip" data-s="rain" onclick="selStory('rain')">🌧️ 下雨的成都</button>
+    <button class="chip" data-s="me" onclick="selStory('me')">🎮 我是一个…</button>
+  </div>
+  <div class="sentence" id="p2-sentence"></div>
+  <div class="chooserow" id="p2-chooserow"></div>
+	  <div class="p2wrap">
+	    <div class="wheelzone">
+	      <div class="wheelwrap" id="p2-wheelwrap">
+	        <div class="wpointer"></div>
+	        <div class="wheelbox" id="p2-wheelbox">
+	          <svg viewBox="0 0 400 400"><g id="p2-segs"></g></svg>
+	        </div>
+	        <div class="hub">🧠</div>
+	      </div>
+	      <div class="wheelcap">格子越大 ⇒ 读过的书里出现越多 ⇒ 越容易被转中</div>
+	      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:center">
+	        <button class="bigbtn" id="p2-spin" onclick="spin()">🎲 转盘，选词！</button>
+	        <label class="fastrow"><input type="checkbox" id="p2-fast"> 🚀 快速转</label>
+	      </div>
+	    </div>
+	    <div class="sidecol">
+	      <div class="why" id="p2-why">先让全班喊出：下一个词最可能是什么？然后转转盘！（老师也可以直接点转盘上的某个词 = 指定结果）</div>
+	      <div class="wrongcard" id="p2-wrongcard"><div id="p2-wrongtext"></div><button onclick="undoWrong()">↩️ 撤销，重新转</button></div>
+	      <div class="pnote" id="p2-note"></div>
+	      <button class="chip" id="p2-toggle" style="display:none" onclick="sideToggle()"></button>
+	    </div>
+	  </div>
+	</section>
+	<!-- ═══════ 第3屏：没有手的大脑 ═══════ -->
+	<section class="stage" id="st3">
+	  <h2>🧠 会说 ≠ 会做：他的手还没连上</h2>
+	  <p class="sub">同一个对话框，派三个任务——眼睛盯紧右边发生了什么（或者……什么都没发生）</p>
+	  <div class="chiprow">
+	    <button class="chip" onclick="s3go('plan')">✍️ 写一段成都攻略</button>
+	    <button class="chip" onclick="s3go('chalk')">🖍️ 把粉笔递给我</button>
+	    <button class="chip" onclick="s3go('window')">🪟 把窗户关上</button>
+	  </div>
+	  <div class="p3grid">
+	    <div class="chat" id="s3-chat"><div class="msg m">🧠 你好！我是只会说话的大脑，派个任务试试～</div></div>
+	    <div class="world">
+	      <div class="wtitle">🌍 现实世界</div>
+	      <div class="brainhand">
+	        <span class="bigemoji">🧠</span>
+	        <div class="cable" id="s3-cable"><i></i><span class="gap">⚡</span><i></i></div>
+	        <span class="bigemoji">🦾</span>
+	      </div>
+	      <div class="items">
+	        <div class="item" id="item-chalk">🖍️ 讲台上的粉笔</div>
+	        <div class="item" id="item-window">🪟 教室的窗户</div>
+	      </div>
+	    </div>
+	  </div>
+	  <div class="s3banner" id="s3-banner"></div>
+	</section>
+	<!-- ═══════ 第4屏：谎言探测器 ═══════ -->
+	<section class="stage" id="st4">
+	  <h2>🔍 谎言探测器：说得像答案 ≠ 就是答案</h2>
+	  <p class="sub">先让全班投票，再按下探测按钮</p>
+  <div class="chiprow">
+    <button class="chip" onclick="s4go(0)">🏫 明天学校放假吗？</button>
+    <button class="chip" onclick="s4go(1)">📚 这本书真的存在吗？</button>
+    <button class="chip" onclick="s4go(2)">📜 李白哪年出生？</button>
+  </div>
+  <div class="p4tip">💡 <b>幻觉</b> = 把猜测说得像答案。最危险的不是"胡说八道"，而是<b>一本正经地胡说八道</b>——越具体、越像真的，越要查一步。</div>
+	  <div class="p4grid">
+	    <div class="p4stage" id="p4-stage">
+	      <div class="scanbar" id="p4-scanbar"></div>
+	      <div class="bigseal" id="p4-seal">查无<br>此信息</div>
+	      <p class="sub" style="text-align:center;padding:60px 0">选上面一个问题开始 ▲</p>
+	    </div>
+	    <div class="p4side">
+	      <div class="votebox" id="p4-vote">
+	        <div class="vt">🙋 全班投票：这段通知，你信吗？</div>
+	        <div class="votebtns">
+	          <button class="vy" onclick="vote(1)">我信 👍 <span id="p4-yc">0</span></button>
+	          <button class="vn" onclick="vote(0)">我不信 👎 <span id="p4-nc">0</span></button>
+	        </div>
+	      </div>
+	      <button class="btn" id="p4-scan" onclick="s4scan()" disabled>🔍 启动谎言探测器</button>
+	      <div class="verdict" id="p4-verdict"></div>
+	    </div>
+	  </div>
+	</section>
+	<!-- ====== 导航 ====== -->
+	<div class="navbar">
+	  <button class="navbtn" onclick="go(cur-1)">◀</button>
+	  <button class="navdot on" onclick="go(1)">1 手机猜字</button>
+	  <button class="navdot" onclick="go(2)">2 接话大转盘</button>
+	  <button class="navdot" onclick="go(3)">3 没有手</button>
+	  <button class="navdot" onclick="go(4)">4 谎言探测器</button>
+	  <button class="navbtn" onclick="go(cur+1)">▶</button>
+	</div>
+	<div class="navtip">空格/→下一屏 · 1~4跳转 · F11全屏 · 🔐密钥像家门钥匙，不能贴大门上</div>
+	<script>
+	/* ================= 通用 ================= */
+	var cur=1;
+	function $(id){return document.getElementById(id);}
+	function go(n){
+	  if(n<1||n>4)return;cur=n;
+	  document.querySelectorAll('.stage').forEach(function(s,i){s.classList.toggle('on',i===n-1);});
+	  document.querySelectorAll('.navdot').forEach(function(d,i){d.classList.toggle('on',i===n-1);});
+	}
+	document.addEventListener('keydown',function(e){
+	  if(e.key>='1'&&e.key<='4'){go(+e.key);e.preventDefault();}
+	  else if(e.key==='ArrowRight'||e.key===' '){go(Math.min(4,cur+1));e.preventDefault();}
+	  else if(e.key==='ArrowLeft'){go(Math.max(1,cur-1));e.preventDefault();}
+	});
+	function typeInto(el,text,speed,done){
+	  el.textContent='';var i=0;
+	  (function t(){
+	    if(i<text.length){el.textContent+=text[i];i++;setTimeout(t,speed);}
+	    else if(done){setTimeout(done,150);}
+	  })();
+	}
+	/* ================= 第1屏：手机 ================= */
+	var P1SUGG=[['真好','预报','有点冷'],['，出去玩吧','，适合睡午觉','，记得防晒']];
+	var p1round=0,p1busy=false;
+	function p1start(){
+	  if(p1busy)return;p1busy=true;p1round=0;
+	  $('p1-input').textContent='';$('p1-chips').innerHTML='';
+	  $('p1-done').className='punch';
+	  typeInto($('p1-input'),'今天天气',180,function(){
+	    p1busy=false;showChips(0);
+	  });
+	}
+	function showChips(r){
+	  var box=$('p1-chips');box.innerHTML='';
+	  P1SUGG[r].forEach(function(w,i){
+	    var b=document.createElement('button');
+	    b.className='sugg';b.textContent=w;b.style.animationDelay=(i*0.13)+'s';
+	    b.onclick=function(){pickSugg(w);};
+	    box.appendChild(b);
+	  });
+	}
+	function pickSugg(w){
+	  if(p1busy)return;p1busy=true;
+	  $('p1-chips').innerHTML='';
+	  var el=$('p1-input'),base=el.textContent,i=0;
+	  (function t(){
+	    if(i<w.length){el.textContent+=w[i];i++;setTimeout(t,80);}
+	    else{
+	      if(p1round===0){p1round=1;p1busy=false;setTimeout(function(){showChips(1);},350);}
+	      else{$('p1-done').classList.add('show');p1busy=false;}
+	    }
+	  })();
+	}
+	/* ================= 第2屏：数据 ================= */
+	var STORIES={
+	poem:{
+	 start:'床前',
+	 steps:[
+	  {cands:[{w:'明月',p:62},{w:'有',p:12},{w:'一',p:9},{w:'是',p:7},{w:'台灯',p:4}],
+	   why:'💡「床前」后面，他读过的几万本书里，最常出现的就是「明月」。',
+	   wrongTail:'一本书。',wrongNote:'接歪了！「床前有一本书」——语法没错，诗没了。记住：格子小 ≠ 转不中。'},
+	  {cands:[{w:'光',p:91},{w:'亮',p:4},{w:'看',p:2},{w:'的',p:2}],
+	   why:'💡 91% 的书里「床前明月」后面是「光」——所以他背这首诗比我们熟。',
+	   wrongTail:'闪闪的。',wrongNote:'「床前明月亮闪闪的」？小格子被转中了，句子就怪了——但语法居然还通！'},
+	  {cands:[{w:'，',p:78},{w:'。',p:9},{w:'！',p:5}],
+	   why:'💡 看清楚了：连「逗号」都占了大半个转盘！五个字念完，78% 的书里下一个就是逗号。',
+	   wrongTail:'',wrongNote:'他觉得句子说完了！可是……这首诗才到一半。'},
+	  {cands:[{w:'疑是',p:70},{w:'好像',p:20},{w:'低头',p:4}],
+	   why:'💡「疑是」是古诗高频接法：「疑是地上霜」「疑是银河落九天」。',
+	   wrongTail:'很亮。',wrongNote:'现代的说法也接得通，只是诗味没了。'},
+	  {cands:[{w:'地上',p:72},{w:'银河',p:18},{w:'天上',p:6}],
+	   why:'💡 顺着「疑是」，最多的是「地上」——也有诗人真的写过「疑是银河落九天」。',
+	   wrongTail:'的星星。',wrongNote:'换条路接，句子仍然通——但已经不是那首诗了。'},
+	  {cands:[{w:'霜',p:88},{w:'糖',p:4},{w:'光',p:4}],
+	   why:'💡 最后一个字几乎是条件反射：88%。',wrongTail:'',wrongNote:'接甜了。小格子随时可能冒出来。'}
+	 ],
+	 ending:'举头望明月，低头思故乡。',
+	 endingNote:'🎉 后面两句他秒接——因为这条「接龙路线」他走过几百万次。他不是背下了一本书，是记住了千万本书的接话规律。'
+	},
+	thirst:{
+	 start:'我渴了',
+	 steps:[
+	  {cands:[{w:'想',p:50},{w:'要',p:35},{w:'好',p:10}],anyOk:true,
+	   why:'💡「渴了」后面一半的书接「想」。这一句转到哪个都接得下去——试试看！'},
+	  {cands:[{w:'喝',p:80},{w:'吃',p:12}],anyOk:true,
+	   why:'💡「渴了想/要」→ 大多数接「喝」。',},
+	  {cands:[{w:'一',p:75},{w:'点',p:15}],anyOk:true,why:'💡 继续接……'},
+	  {cands:[{w:'瓶',p:80},{w:'杯',p:12}],anyOk:true,why:'💡「一瓶」「一杯」都是高频说法。'},
+	  {cands:[{w:'可乐',p:45},{w:'水',p:30},{w:'雪碧',p:15},{w:'奶茶',p:10}],anyOk:true,tail:'。',
+	   why:'💡 重头戏：四个词都通！注意看——没有一个词独大，好几种接法都合理。'}
+	 ],
+	 ending:'',
+	 endingNote:'💡 看明白了吗？「我渴了」→「可乐」，不是他懂你的心，是他一步一步把最可能的词接了出来。这就是售货机做不到的「听懂人话」！'
+	},
+	rain:{
+	 rainMode:true,
+	 startNoRain:'周末去成都，最好带上',
+	 startRain:'周末去成都，如果突然下雨，最好带上',
+	 candsNoRain:[{w:'钱包',p:30},{w:'充电宝',p:25},{w:'相机',p:20},{w:'零食',p:17},{w:'雨伞',p:8}],
+	 candsRain:[{w:'雨伞',p:74},{w:'雨衣',p:10},{w:'钱包',p:6},{w:'相机',p:5},{w:'好心情',p:5}],
+	 tail:'。',
+	 noteNoRain:'💡 句子里没有「下雨」：钱包、充电宝平分秋色，「雨伞」只是角落里的小格子（8%）。',
+	 noteRain:'💡 加上「如果突然下雨」——雨伞瞬间膨胀成大半个转盘（74%）！他没查天气预报，是「下雨」这两个字把转盘改了。',
+ endingNote:'💡 上下文一变，转盘跟着变——这就是他能「听懂上下文」的全部秘密。想重来？点顶部的句子标签即可。'
+},
+me:{
+ chooseMode:true,
+ start:'我是一个',
+ hint:'🎮 <b>你来选！</b>点一个身份（或者直接点转盘上的格子）——「我是一个___」的横线一填，转盘立刻换成另一个频道。',
+ choices:[
+  {em:'🧒',short:'小学生',word:'三年级小学生',
+   steps:[
+    {cands:[{w:'，最喜欢',p:52},{w:'，最怕',p:20},{w:'，每天',p:16},{w:'，周末',p:12}],anyOk:true,
+     why:'💡「我是一个三年级小学生」——他读过的无数篇作文里，这个开头后面最爱接「最喜欢」。'},
+    {cands:[{w:'上体育课',p:28},{w:'吃炸鸡',p:22},{w:'看动画片',p:20},{w:'玩手机',p:18},
+            {w:'写作文',p:12,note:'🤣 转到最小的格子了！句子完全通顺，只是概率低——记住：<b>格子小 ≠ 转不中</b>。'}],anyOk:true,tail:'。',
+     why:'💡 全是小学生作文里的高频词。他没见过你——是「三年级小学生」这几个字把转盘换成了「小学生频道」！'}
+   ],
+   endingNote:'💡 换成「三年级小学生」，转盘整个换台。<b>他从来没问过你是谁</b>——是句子开头那几个字改了转盘。'
+  },
+  {em:'🎮',short:'游戏迷',word:'游戏迷',
+   steps:[
+    {cands:[{w:'，最想',p:44},{w:'，每天',p:26},{w:'，最怕',p:18},{w:'，最近',p:12}],anyOk:true,
+     why:'💡「游戏迷」后面，他见得最多的是「最想」——想通关、想上分、想出新皮肤。'},
+    {cands:[{w:'通关',p:32},{w:'五杀',p:24},{w:'抽卡',p:18},{w:'出皮肤',p:14},
+            {w:'写作业',p:12,note:'🤣 最小的格子被转中了！语法一点没错，只是——游戏迷最想写作业？<b>格子小 ≠ 转不中</b>。'}],anyOk:true,tail:'。',
+     why:'💡「通关」「五杀」「抽卡」——全是游戏世界的词。「写作业」那格一直都在，只是很小很小。'}
+   ],
+   endingNote:'💡 同一个「我是一个___」，换个身份格子全变。<b>转盘里装的是他读过的文字，不是他自己的想法。</b>'
+  },
+  {em:'⚽',short:'篮球少年',word:'打篮球的少年',
+   steps:[
+    {cands:[{w:'，每天',p:40},{w:'，最喜欢',p:30},{w:'，最想',p:18},{w:'，最怕',p:12}],anyOk:true,
+     why:'💡 爱运动的人，书里多半写「每天」——每天练球、每天跑步。'},
+    {cands:[{w:'打篮球',p:38},{w:'看NBA',p:22},{w:'投三分',p:16},{w:'灌篮',p:14},
+            {w:'做数学题',p:10,note:'😅 10% 的小格子也能被转中——句子照样通顺。<b>格子小 ≠ 转不中</b>。'}],anyOk:true,tail:'。',
+     why:'💡「打篮球」一家独大（38%）。你换成「画画达人」试试——这几个格子会全部消失。'}
+   ],
+   endingNote:'💡 换个身份，这几格直接换掉。<b>他没在想"你是谁"，他在算"这类人后面通常接什么"。</b>'
+  },
+  {em:'🎨',short:'画画达人',word:'爱画画的初中生',
+   steps:[
+    {cands:[{w:'，最喜欢',p:42},{w:'，最近',p:26},{w:'，每天',p:20},{w:'，最想',p:12}],anyOk:true,
+     why:'💡 换台了——「爱画画的」后面，他更常看到「最近」：最近在画什么、最近在练什么。'},
+    {cands:[{w:'画漫画',p:34},{w:'画同人',p:22},{w:'调色',p:16},{w:'临摹',p:16},
+            {w:'抄课文',p:12,note:'😆 又是最小的格子！句子没毛病，只是概率低。<b>格子小 ≠ 转不中</b>。'}],anyOk:true,tail:'。',
+     why:'💡「画漫画」「画同人」「临摹」——刚才的「五杀」「灌篮」一格都不剩了。'}
+   ],
+   endingNote:'💡 对比一下「游戏迷」那盘的格子：几乎全换掉了。<b>上下文一变，转盘整个重写。</b>'
+  },
+  {em:'🐱',short:'铲屎官',word:'养猫的人',
+   steps:[
+    {cands:[{w:'，每天',p:44},{w:'，最喜欢',p:26},{w:'，最怕',p:18},{w:'，周末',p:12}],anyOk:true,
+     why:'💡 养宠物的人，「每天」出现得最多——每天喂食、每天铲屎。'},
+    {cands:[{w:'撸猫',p:40},{w:'喂罐头',p:22},{w:'拍猫片',p:16},{w:'买猫粮',p:12},
+            {w:'给猫洗澡',p:10,note:'🙀 全场最小的格子！但也可能是最惊险的那一格——<b>格子小 ≠ 转不中</b>。'}],anyOk:true,tail:'。',
+     why:'💡「撸猫」占了将近半个盘。看清楚：<b>这些词不是他想出来的，是他读过的养猫帖子里最常见的。</b>'}
+   ],
+   endingNote:'💡 五个身份，五张完全不同的转盘。<b>他不知道你是谁——他只知道「我是一个___」后面，通常该接什么。</b>'
+  }
+ ]
+}
+};
+	/* ================= 第2屏：转盘引擎 ================= */
+var w2={story:null,name:'',step:0,parts:[],cands:[],paths:[],forced:-1,spinning:false,rot:0,rain:false,done:false,lastTail:false,meIdx:-1};
+var IDCOLORS=['#f08c00','#4dabf7','#51cf66','#cc5de8','#ff6b6b','#20c997'];
+function currentStart(){
+  var s=w2.story;
+  return s.rainMode?(w2.rain?s.startRain:s.startNoRain):s.start;
+}
+function stepsOf(){
+  var s=w2.story;
+  return s.chooseMode?s.choices[w2.meIdx].steps:s.steps;
+}
+function endNoteOf(){
+  var s=w2.story;
+  return s.chooseMode?s.choices[w2.meIdx].endingNote:s.endingNote;
+}
+function selStory(name){
+  if(w2.spinning)return;
+  w2.story=STORIES[name];w2.name=name;w2.step=0;w2.rain=false;w2.done=false;w2.lastTail=false;w2.meIdx=-1;
+  w2.parts=[currentStart()];
+  document.querySelectorAll('#st2 .chip').forEach(function(b){b.classList.toggle('on',b.dataset.s===name);});
+  renderSent(false);
+  $('p2-note').className='pnote';
+  $('p2-wrongcard').className='wrongcard';
+  $('p2-spin').disabled=false;$('p2-spin').textContent='🎲 转盘，选词！';
+  if(w2.story.rainMode){
+    $('p2-chooserow').classList.remove('show');
+    $('p2-toggle').style.display='block';
+    $('p2-toggle').textContent='➕ 把「如果突然下雨」加进句子';
+    buildWheel(w2.story.candsNoRain);
+    setWhy(w2.story.noteNoRain);
+  }else if(w2.story.chooseMode){
+    $('p2-toggle').style.display='none';
+    renderIdCards();
+    buildWheel(w2.story.choices.map(function(c){return {w:c.em+c.short,p:Math.round(100/w2.story.choices.length)};}),
+      {onPick:function(i){pickIdentity(i);},colors:IDCOLORS,showPct:false});
+    setWhy(w2.story.hint);
+    $('p2-spin').disabled=true;$('p2-spin').textContent='🎯 先选一个身份 ▲';
+  }else{
+    $('p2-chooserow').classList.remove('show');
+    $('p2-toggle').style.display='none';
+    buildWheel(w2.story.steps[0].cands);
+    setWhy('先让全班喊：下一个词最可能是什么？然后转转盘！（点转盘上的词=指定结果）');
+  }
+}
+function renderIdCards(){
+  var box=$('p2-chooserow');box.innerHTML='';
+  w2.story.choices.forEach(function(c,i){
+    var b=document.createElement('button');
+    b.className='idcard';b.innerHTML='<span class="ie">'+c.em+'</span>'+c.word;
+    b.onclick=function(){pickIdentity(i);};
+    box.appendChild(b);
+  });
+  box.classList.add('show');
+}
+function pickIdentity(i){
+  if(w2.spinning)return;
+  w2.spinning=true;
+  var c=w2.story.choices[i];
+  w2.meIdx=i;w2.step=0;w2.done=false;w2.lastTail=false;
+  $('p2-note').className='pnote';
+  $('p2-wrongcard').className='wrongcard';
+  var row=$('p2-chooserow');
+  row.querySelectorAll('.idcard').forEach(function(b,k){b.classList.toggle('on',k===i);});
+  flyWord(c.em+c.word,row,$('p2-cursor'),function(){
+    row.classList.remove('show');
+    w2.parts=[w2.story.start,c.word];
+    renderSent(true);
+    var st=stepsOf();
+    buildWheel(st[0].cands);
+    setWhy(st[0].why);
+    $('p2-spin').disabled=false;$('p2-spin').textContent='🎲 转盘，选词！';
+    $('p2-toggle').style.display='block';
+    $('p2-toggle').textContent='🔄 换一个身份重来';
+    w2.spinning=false;
+  });
+}
+	function renderSent(pop){
+	  var html='';
+	  w2.parts.forEach(function(p,i){
+	    if(i===0)html+=p;
+	    else html+='<span class="'+(pop&&i===w2.parts.length-1?'popw':'w')+'">'+p+'</span>';
+	  });
+	  $('p2-sentence').innerHTML=html+'<span class="caret" id="p2-cursor">▌</span>';
+	}
+function buildWheel(cands,opt){
+  opt=opt||{};
+  var list=cands.slice();
+  var sum=list.reduce(function(a,c){return a+c.p;},0);
+  if(100-sum>=3)list.push({w:'',p:100-sum,filler:true});
+  w2.cands=list;w2.forced=-1;w2.paths=[];
+  var g=$('p2-segs');g.innerHTML='';
+  var R=190,C=200,a=0;
+  var colors=opt.colors||['#f08c00','#4dabf7','#74c0fc','#a5d8ff','#ced4da','#dee2e6','#e9ecef'];
+	  function P(deg,r){return [C+r*Math.sin(deg*Math.PI/180),C-r*Math.cos(deg*Math.PI/180)];}
+	  list.forEach(function(c,i){
+	    var ang=c.p/100*360,a1=a,a2=a+ang,mid=(a1+a2)/2;
+	    c._a1=a1;c._mid=mid;
+	    var p1=P(a1,R),p2=P(a2,R),large=ang>180?1:0;
+	    var path=document.createElementNS('http://www.w3.org/2000/svg','path');
+	    path.setAttribute('d','M '+C+' '+C+' L '+p1[0].toFixed(1)+' '+p1[1].toFixed(1)+' A '+R+' '+R+' 0 '+large+' 1 '+p2[0].toFixed(1)+' '+p2[1].toFixed(1)+' Z');
+	    path.setAttribute('fill',c.filler?'#f1f3f5':colors[Math.min(i,colors.length-1)]);
+	    path.setAttribute('stroke','#fff');path.setAttribute('stroke-width','3');
+	    path.classList.add('seg');if(c.filler)path.classList.add('fill');
+    if(!c.filler){
+      path.onclick=(function(idx){return function(){
+        if(w2.spinning||w2.done)return;
+        if(opt.onPick){opt.onPick(idx);return;}
+        w2.forced=(w2.forced===idx?-1:idx);
+        w2.paths.forEach(function(p){p.classList.remove('forced');});
+        if(w2.forced>=0)w2.paths[w2.forced].classList.add('forced');
+      };})(i);
+    }
+	    g.appendChild(path);w2.paths.push(path);
+	    if(!c.filler&&ang>=8){
+	      var lp=P(mid,130);
+	      var t=document.createElementNS('http://www.w3.org/2000/svg','text');
+	      t.setAttribute('x',lp[0]);t.setAttribute('y',lp[1]);
+	      t.setAttribute('text-anchor','middle');t.setAttribute('dominant-baseline','middle');
+	      t.classList.add('segword');
+	      t.style.fontSize=c.p>=40?'32px':(c.p>=15?'22px':'16px');
+	      t.textContent=c.w;g.appendChild(t);
+	      if(ang>=22&&opt.showPct!==false){
+	        var pp=P(mid,100);
+	        var t2=document.createElementNS('http://www.w3.org/2000/svg','text');
+	        t2.setAttribute('x',pp[0]);t2.setAttribute('y',pp[1]);
+	        t2.setAttribute('text-anchor','middle');t2.setAttribute('dominant-baseline','middle');
+	        t2.classList.add('segpct');t2.textContent=c.p+'%';g.appendChild(t2);
+	      }
+	    }
+	    a=a2;
+	  });
+	  var box=$('p2-wheelbox');
+	  box.style.transition='none';box.style.transform='rotate(0deg)';
+	  void box.offsetWidth;
+	  w2.rot=0;
+	}
+	function setWhy(t){$('p2-why').innerHTML=t;}
+	function showWrong(note){
+	  $('p2-wrongtext').innerHTML='🎲 <b>转到了小格子！</b><br>'+note;
+	  $('p2-wrongcard').classList.add('show');
+	}
+	function undoWrong(){
+	  w2.parts.pop();
+	  if(w2.lastTail)w2.parts.pop();
+	  w2.lastTail=false;
+	  renderSent(false);
+	  $('p2-wrongcard').classList.remove('show');
+  buildWheel(stepsOf()[w2.step].cands);
+  setWhy('再来一次！也可以直接点转盘上的词，指定结果。');
+	  $('p2-spin').disabled=false;$('p2-spin').textContent='🎲 再转一次';
+	}
+	function spin(){
+	  if(w2.spinning||w2.done)return;
+	  var idx=-1;
+	  if(w2.forced>=0&&!w2.cands[w2.forced].filler){idx=w2.forced;}
+	  else{
+	    var pickable=w2.cands.filter(function(c){return !c.filler;});
+	    var tot=pickable.reduce(function(a,c){return a+c.p;},0);
+	    var r=Math.random()*tot,chosen=pickable[0];
+	    for(var k=0;k<pickable.length;k++){if(r<pickable[k].p){chosen=pickable[k];break;}r-=pickable[k].p;}
+	    idx=w2.cands.indexOf(chosen);
+	  }
+	  var c=w2.cands[idx];
+	  var target=(360-c._mid)%360;
+	  var curm=((w2.rot%360)+360)%360;
+	  var delta=(target-curm+360)%360;
+	  var newR=w2.rot+360*4+delta;
+	  var dur=$('p2-fast').checked?1.15:2.6;
+	  w2.spinning=true;w2.spinIdx=idx;
+	  $('p2-spin').disabled=true;
+	  var box=$('p2-wheelbox');
+	  box.style.transition='transform '+dur+'s cubic-bezier(.12,.8,.16,1)';
+	  box.style.transform='rotate('+newR+'deg)';
+	  w2.rot=newR;
+	  setTimeout(function(){land(idx);},dur*1000+60);
+	}
+	function land(idx){
+	  w2.paths.forEach(function(p,i){p.classList.toggle('win',i===idx);});
+	  var c=w2.cands[idx];
+	  var s=w2.story;
+	  flyWord(c.w,$('p2-wheelwrap'),$('p2-cursor'),function(){
+	    w2.parts.push(c.w);
+	    w2.lastTail=false;
+	    if(s.rainMode){
+	      w2.parts.push(s.tail);
+	      renderSent(true);w2.done=true;w2.spinning=false;
+	      $('p2-spin').textContent='✅ 完成！点顶部标签换一句';
+	      showNote(s.endingNote);return;
+	    }
+    var step=stepsOf()[w2.step];
+    var isMain=(idx===0)||step.anyOk;
+    if(isMain){
+      if(step.tail){w2.parts.push(step.tail);}
+      renderSent(true);setWhy(step.why+(c.note?'<br><br>'+c.note:''));
+      w2.step++;
+      if(w2.step>=stepsOf().length){
+        w2.done=true;w2.spinning=false;
+        $('p2-spin').textContent=w2.story.chooseMode?'✅ 完成！点「🔄 换一个身份重来」':'✅ 完成！点顶部标签换一句';
+        if(s.ending){fastEnding(s.ending,function(){showNote(endNoteOf());});}
+        else{showNote(endNoteOf());}
+      }else{
+        setTimeout(function(){
+          buildWheel(stepsOf()[w2.step].cands);
+	          $('p2-spin').disabled=false;$('p2-spin').textContent='🎲 继续转 ▶';
+	          w2.spinning=false;
+	        },1000);
+	      }
+	    }else{
+	      if(step.wrongTail){w2.parts.push(step.wrongTail);w2.lastTail=true;}
+	      renderSent(true);
+	      showWrong(step.wrongNote);
+	      w2.spinning=false;
+	    }
+	  });
+	}
+	function flyWord(word,fromEl,toEl,done){
+	  var f=fromEl.getBoundingClientRect(),t=toEl.getBoundingClientRect();
+	  var s=document.createElement('div');
+	  s.className='flyword';s.textContent=word;
+	  s.style.left=(f.left+f.width/2)+'px';s.style.top=(f.top+f.height/2)+'px';
+	  document.body.appendChild(s);
+	  var dx=(t.left+t.width/2)-(f.left+f.width/2);
+	  var dy=(t.top+t.height/2)-(f.top+f.height/2);
+	  requestAnimationFrame(function(){
+	    s.style.transform='translate(calc(-50% + '+dx+'px), calc(-50% + '+dy+'px)) scale(1)';
+	  });
+	  setTimeout(function(){s.remove();done();},640);
+	}
+	function fastEnding(txt,done){
+	  w2.parts.push('');
+	  var idx=w2.parts.length-1,i=0;
+	  (function t(){
+	    if(i<txt.length){w2.parts[idx]+=txt[i];renderSent(false);i++;setTimeout(t,32);}
+	    else{done();}
+	  })();
+	}
+	function showNote(t){var n=$('p2-note');n.innerHTML=t;n.classList.add('show');}
+function sideToggle(){
+  var s=w2.story;
+  if(s&&s.chooseMode){ selStory('me'); return; }
+  rainToggle();
+}
+function rainToggle(){
+  if(w2.spinning||w2.done)return;
+	  w2.rain=!w2.rain;
+	  $('p2-toggle').textContent=w2.rain?'➖ 去掉「如果突然下雨」':'➕ 把「如果突然下雨」加进句子';
+	  w2.parts=[currentStart()];
+	  renderSent(false);
+	  buildWheel(w2.rain?w2.story.candsRain:w2.story.candsNoRain);
+	  setWhy(w2.rain?w2.story.noteRain:w2.story.noteNoRain);
+	  $('p2-note').className='pnote';
+	  $('p2-spin').disabled=false;$('p2-spin').textContent='🎲 转盘，选词！';
+	}
+	/* ================= 第3屏：没有手 ================= */
+	var S3={
+	plan:{q:'✍️ 写一段成都攻略',type:'say',
+	 a:'成都周末游来啦：上午人民公园喝盖碗茶，中午一顿火锅，下午逛宽窄巷子，晚上去锦里看灯笼。记得穿双舒服的鞋！',
+	 bt:'输出：一段文字 ✅ —— 这就是他全部的本事',bc:'green'},
+	chalk:{q:'🖍️ 把粉笔递给我',type:'do',item:'item-chalk',
+	 a:'好的！马上递……咦，我够不到。我没有手，也没有连到你们的讲台。粉笔就在讲台盒子里，你伸手比我快～',
+	 bt:'他说了「好的」≠ 他做到了 —— 模型的手：未连接',bc:'red'},
+	window:{q:'🪟 把窗户关上',type:'do',item:'item-window',
+	 a:'好的！这就去关……这扇窗户没有连到我身上。麻烦靠窗的同学抬个手，他一秒搞定！',
+	 bt:'同一个原因：输入 → 大脑 → 文字，到此为止，没有手',bc:'red'}
+	};
+	function s3go(k){
+	  var d=S3[k],chat=$('s3-chat');
+	  chat.innerHTML='';
+	  document.querySelectorAll('#st3 .item').forEach(function(i){i.classList.remove('deny','shake');});
+	  $('s3-cable').classList.remove('spark');
+	  var b=$('s3-banner');b.className='s3banner';b.textContent='';
+	  var u=document.createElement('div');u.className='msg u';u.textContent=d.q;chat.appendChild(u);
+	  setTimeout(function(){
+	    var m=document.createElement('div');m.className='msg m';m.textContent='● ● ●';chat.appendChild(m);
+	    setTimeout(function(){
+	      typeInto(m,'🧠 '+d.a,22,function(){
+	        if(d.type==='do'){
+	          $('s3-cable').classList.add('spark');
+	          $(d.item).classList.add('deny','shake');
+	        }
+	        b.className='s3banner show '+d.bc;b.textContent=d.bt;
+	      });
+	    },450);
+	  },400);
+	}
+	/* ================= 第4屏：谎言探测器 ================= */
+	var S4=[
+{type:'lie',vote:'🙋 全班投票：这份「放假通知」，你信吗？',
+ html:'<div class="paper"><div class="ptitle">通知</div>'+
+	 '<p>全体同学：</p>'+
+	 '<p>因明天下午全校教师参加<span class="sus">集体教研活动</span>，明天下午<span class="sus">全校放假半天</span>，请同学们合理安排时间，注意安全。</p>'+
+	 '<div class="psig">教务处<div class="pseal">教务处</div></div></div>',
+ verdict:'❌ 查无此信息：他根本没看过你们学校的任何通知！这段话是照着「放假通知」的标准格式<b>现编的</b>。这就是<b>幻觉</b>——把猜测说得像答案。'},
+{type:'lie',seal:'查无<br>此书',vote:'🙋 全班投票：这本《星空邮局》，你信吗？',
+ ask:'老师布置：读一本科幻小说，写读后感。同学问 AI「推荐一本适合初中生读的科幻小说」，AI 3 秒就给了下面这段——',
+ html:'<div class="bookcard">'+
+ '<div class="bookcover"><div class="bc-t">星空邮局</div><div class="bc-star">★★★★★</div><div class="bc-a">林知远 · 著</div></div>'+
+ '<div class="bookmeta">'+
+ '<div class="bm-title">《星空邮局》</div>'+
+ '<div class="bm-row"><b>作者：</b><span class="sus">林知远</span></div>'+
+ '<div class="bm-row"><b>出版：</b><span class="sus">少年儿童出版社 · 2021 年 9 月</span></div>'+
+ '<div class="bm-row"><b>书号：</b><span class="sus">ISBN 978-7-5324-9981-3</span></div>'+
+ '<div class="bm-row"><b>口碑：</b><span class="sus">豆瓣 8.9 分</span> · <span class="sus">入选"全国青少年百种优秀图书"</span></div>'+
+ '<div class="bm-desc">十二岁的男孩在阁楼发现一个旧信箱，只要把信投进去，三天后就会收到回信——落款来自一颗没人居住的星球……</div>'+
+ '</div></div>',
+ verdict:'❌ <b>查无此书</b>：书名、作者、出版社、书号、豆瓣评分、获奖情况——<b>一条都不存在</b>。<br>'+
+ '可你看它多像真的：有编号、有评分、有剧情简介。<br>'+
+ '记住：<b>细节越多 ≠ 越可信</b>。他不是在"查"，他是在"接着编"——把"推荐童书"的标准格式，一格一格填满了。<br>'+
+ '<span style="color:#c92a2a">这就是幻觉最可怕的地方：不是胡说八道，是一本正经地胡说八道。</span>'},
+{type:'true',seal:'大概率<br>可信',vote:'🙋 全班投票：这个出生年份，你信吗？',
+ html:'<div class="answer"><div class="q">📜 李白是哪一年出生的？</div>'+
+	 '<p>李白，字太白，号青莲居士，唐代大诗人，生于公元 <span class="oks">701 年</span>。</p></div>',
+	 verdict:'✅ 大概率可信：这是百科里反复出现过的公共知识，这条「接龙」他走过百万次。但记住：大概率 ≠ 一定，重要的事多查一步。'}
+	];
+	var s4cur=-1,s4votes={y:0,n:0};
+function s4go(i){
+  s4cur=i;s4votes={y:0,n:0};
+  var d=S4[i];
+  $('p4-yc').textContent='0';$('p4-nc').textContent='0';
+  $('p4-stage').innerHTML='<div class="scanbar" id="p4-scanbar"></div>'+
+    '<div class="bigseal" id="p4-seal">'+(d.seal||'查无<br>此信息')+'</div>'+
+    (d.ask?'<div class="askline">'+d.ask+'</div>':'')+d.html;
+  $('p4-seal').classList.remove('show');
+  $('p4-vote').style.display=(d.type==='lie')?'block':'none';
+  if(d.vote)$('p4-vote').querySelector('.vt').innerHTML=d.vote;
+	  $('p4-scan').disabled=(S4[i].type==='lie');
+	  $('p4-scan').textContent='🔍 启动谎言探测器';
+	  var v=$('p4-verdict');v.className='verdict';v.innerHTML='';
+	}
+	function vote(x){
+	  if(s4cur<0)return;
+	  if(x)s4votes.y++;else s4votes.n++;
+	  $('p4-yc').textContent=s4votes.y;$('p4-nc').textContent=s4votes.n;
+	  $('p4-scan').disabled=false;
+	}
+	function s4scan(){
+	  if(s4cur<0)return;
+	  if(S4[s4cur].type==='lie'&&s4votes.y+s4votes.n===0){
+	    setWhy4('先让全班投一票，再探测！');return;
+	  }
+	  $('p4-scan').disabled=true;$('p4-scan').textContent='🔍 扫描中……';
+	  var bar=$('p4-scanbar');
+	  bar.classList.remove('run');void bar.offsetWidth;bar.classList.add('run');
+	  setTimeout(function(){
+	    if(S4[s4cur].type==='lie'){
+	      document.querySelectorAll('#p4-stage .sus').forEach(function(el){el.classList.add('hit');});
+	      $('p4-seal').classList.add('show');
+	      showVerdict('bad',S4[s4cur].verdict);
+	    }else{
+	      document.querySelectorAll('#p4-stage .oks').forEach(function(el){el.classList.add('ok');});
+	      showVerdict('good',S4[s4cur].verdict);
+	    }
+	    $('p4-scan').textContent='🔍 探测完成';
+	  },1750);
+	}
+	function showVerdict(cls,t){var v=$('p4-verdict');v.innerHTML=t;v.className='verdict show '+cls;}
+	function setWhy4(t){$('p4-scan').textContent=t;setTimeout(function(){$('p4-scan').textContent='🔍 启动谎言探测器';$('p4-scan').disabled=false;},1200);}
+	/* ================= 初始化 ================= */
+	selStory('poem');
+	</script>
+	</body>
+	</html>
